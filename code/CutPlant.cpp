@@ -26,10 +26,13 @@ void store(Board *test, const Method &method) {
 }
 
 void storeFinal(distributeMethod &distribute) {
+    int cnt =0 ;
     for (const auto &method: distribute.methods) {
         auto *board = new Board;
-        cout << "the " << method.getUseRate() << " id " << board->board_id << endl;
         store(board, method);
+        cout <<"for "<<cnt<<":"<<endl;
+        method.show();
+        cnt ++;
     }
     cout << "the final store value " << distribute.getValue() << endl;
 }
@@ -80,7 +83,7 @@ int main() {
 
     distributeMethod best_method = init_method;
 
-    int dfs_num = 500;
+    int dfs_num = 20000;
     struct cmpByValue {
         bool operator()(const distributeMethod &lhs, const distributeMethod &rhs) {
             return lhs.getValue() > rhs.getValue();
@@ -99,7 +102,7 @@ int main() {
         }
         if (most_value_method.getValue() > best_method.getValue()) {
             best_method = most_value_method;
-            size_lim = min((int) (size_lim * 1.2), 8000);
+            size_lim = min((int) (size_lim * 1.2), 2000);
             pre_dfs = dfs_num;
             count_pre = dfs_num;
         }
@@ -114,7 +117,6 @@ int main() {
             distributes.erase(--distributes.end());
         }
     }
-    cout << "pre dfs " << count_pre << endl;
     best_method.setValue();
     for (Method &method: best_method.methods) {
         setpriority(method);

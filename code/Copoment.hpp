@@ -78,23 +78,24 @@ public:
     }
     bool InsertShape(const Pos &pos, const Shape &shp) {
         vector<line> new_contain;
-        bool sud = 0;
+        bool sud = false;
         for (int i = 0; i < contain.size(); i++) {
-            line new_line;
+            line new_line{};
             if (contain[i].start_point == pos) {
-                sud = 1;
+                assert(sud== false);
+                sud = true;
                 // pos is always one of the line's start point
                 new_line.start_point.x = pos.x;
                 new_line.start_point.y = pos.y + shp.height;
                 new_line.len = shp.width;
-                if (i + 1 < contain.size() && pos.x + shp.width > contain[i + 1].start_point.x + eps) {
-                    return 0;
+                if (i + 1 < contain.size() && pos.x + shp.width > contain[i + 1].start_point.x + 2) {
+                    return false;
                 }
                 contain[i].len -= shp.width;
                 contain[i].start_point.x += shp.width;
                 int idx = new_contain.size();
                 if (idx > 0 && abs(new_contain[idx - 1].start_point.y - new_line.start_point.y) < eps) {
-                    new_contain[i - 1].len += new_line.len;
+                    new_contain[idx - 1].len += new_line.len;
                 } else {
                     new_contain.push_back(new_line);
                 }
@@ -124,9 +125,6 @@ public:
     Copoment(string &desc, int idx, bool roll, bool rot, double x, double y);
     Shape shape;
 
-    int GetKindId() {
-        return kind_id[kind_desc];
-    }
     inline double getSqrt() const {
         return shape.height * shape.width;
     }

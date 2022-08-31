@@ -1,6 +1,8 @@
 #ifndef DISTRBUTE
 #define DISTRBUTE
 
+#include <random>
+
 #include "DfsBlock.hpp"
 
 class distributeMethod {
@@ -20,6 +22,7 @@ public:
     }
     vector<distributeMethod> neighbor() {
         vector<distributeMethod> distributeMethods;
+        assert(methods.size() == board_have.size());
         for (int i = 0; i < methods.size(); i++) {
             if (board_have.empty())
                 continue;
@@ -46,8 +49,28 @@ public:
         }
         return distributeMethods;
     }
-
-
 };
+
+vector<Copoment*> pickBlockSumSqrtAs(double sqrt,vector<Copoment*>& pool){
+    vector<Copoment*> best_fit_set;
+    double best_dif = sqrt;
+    int random_times = 20;
+    while(random_times--){
+        vector<Copoment*> cur_fit_set;
+        shuffle(pool.begin(),pool.end(), std::mt19937(std::random_device()()));
+        double cur_sqrt = 0 ;
+        for(auto block: pool){
+            if(block->shape.getSqrt() + cur_sqrt < sqrt){
+                cur_sqrt += block->shape.getSqrt();
+                cur_fit_set.push_back(block);
+            }
+        }
+        if(sqrt - cur_sqrt < best_dif){
+            best_fit_set = cur_fit_set;
+            best_dif = sqrt - cur_sqrt;
+        }
+    }
+}
+
 
 #endif

@@ -9,16 +9,17 @@ struct Place {
 struct Method {
     vector<Place> arange;
     vector<Place> best;
-    vector<int> rot_record;
     double cur_waste = 0;
     double max_sqrt = 0;
     double cur_sqrt = 0;
+    bool is_best = false;
 
-    void update(double sqrt) {
-        if (sqrt < max_sqrt + 1)
-            return;
+    bool update(double sqrt) {
+        if (sqrt < max_sqrt + 10)
+            return false;
         max_sqrt = sqrt;
         best = arange;
+        return true;
     }
 
     double getUseRate() const {
@@ -31,6 +32,14 @@ struct Method {
             sqrt += place.block->getSqrt();
         }
         return sqrt;
+    }
+
+    void show() const {
+        cout <<"method "<< getUseRate() << endl;
+        for(auto place:best){
+            cout <<" "<<place.block->id ;//<<" in "<< place.pos.x<<","<<place.pos.y;
+        }
+        cout <<"-----\n";
     }
 };
 
