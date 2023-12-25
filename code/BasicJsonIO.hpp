@@ -2,18 +2,19 @@
 #define BASICJSONIO_H
 #include "Copoment.hpp"
 #include "json.hpp"
+#include "Distrubute.hpp"
 #include <ctime>
 using namespace std;
-const string data_path = "../../data/data.json";
+const string data_path = "../../data/data/data/data_1.json";
 const string result_path = "../../data/result.json";
 using json = nlohmann::json;
 
-inline void store_result(const string &file_name, const vector<Board *> &boards) {
+void storeBoardsToFile(const vector<shared_ptr<Board>> &boards, const string &file_name) {
     json final_json;
     map<string, vector<json>> board_jsons;
     map<string, vector<json>> board_infos;
     double tot_sqrt = 0, used_sqrt = 0;
-    for (Board *board : boards) {
+    for (auto board : boards) {
         if (board->consist.empty()) {
             cout << "skip " << endl;
             continue;
@@ -29,14 +30,12 @@ inline void store_result(const string &file_name, const vector<Board *> &boards)
             Pos pos = item.second;
             json part;
             part["index"] = copt->id;
-
             board_rate += copt->getSqrt();
             used_sqrt += copt->getSqrt();
             copt->shape.width -= Config::gap;
             copt->shape.height -= Config::gap;
             part["rect"]["width"] = copt->shape.width;
             part["rect"]["height"] = copt->shape.height;
-
             part["ratate"] = copt->is_rotated;
             part["startX"] = pos.x + Config::margin;
             part["startY"] = pos.y + Config::margin;
@@ -75,7 +74,7 @@ inline void store_result(const string &file_name, const vector<Board *> &boards)
     file_writer << final_json;
     cout << "total time cost is " << (clock() - Config::start_time) * 1e-6 << endl;
 }
-inline void init() {
+inline void inputData() {
     ifstream input(data_path);
     json input_json;
     input >> input_json;
@@ -107,21 +106,29 @@ inline void init() {
         nums++;
     }
 }
-
-inline void show_rest(int kind_id) {
+void storeDistrubute(distributeMethod &distribute) {
+    vector<shared_ptr<Board> > boards;
+    int cnt = 0;
+    for (const auto &method: distribute.methods) {
+        store(method,boards);
+        cout << "for " << cnt << ":" << endl;
+        method.show();
+        cnt++;
+    }
+    storeBoardsToFile(boards, result_path);
+    cout << "the final store value " << distribute.getValue() << endl;
+}
+inline bool checkRestBlock(int kind_id) {
     double tot_sqrt = 0;
+    bool sud = true;
     for (auto bl : Copoment::total_set[kind_id]) {
         if (bl->used == 0) {
             cout << "the " << bl->id << " shp " << bl->shape.height << " " << bl->shape.width << endl;
             tot_sqrt += bl->getSqrt();
+            sud = false;
         }
     }
     cout << tot_sqrt << " is sqrt waste " << endl;
-}
-inline void showPool(vector<Copoment *> &pool) {
-    cout << "the pool " << pool.size() << endl;
-    for (auto block : pool) {
-        cout << "[" << block->shape.width << "," << block->shape.height << "]" << endl;
-    }
+    return sud;
 }
 #endif

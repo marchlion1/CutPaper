@@ -1,28 +1,11 @@
 #ifndef DFSBLOCK
 #define DFSBLOCK
+
 #include "Method.hpp"
+#include "para.hpp"
 
-ll getUnusedPoolHash(vector<Copoment *>& pool){
-    const ll mod = 1e9+7;
-    vector<int> ids;
-    for(auto block:pool){
-        if(block->used)continue;
-        ids.push_back(block->id);
-    }
-    ll hash = 1;
-    sort(ids.begin(),ids.end());
-    for(int id:ids){
-        hash = (hash*131)^id % mod;
-    }
-    return hash;
-}
+int dfs_num = 0;
 
-bool cmp(const Place &lhs, const Place &rhs) {
-    if (lhs.block->first_use == rhs.block->first_use) {
-        return lhs.value < rhs.value;
-    }
-    return lhs.block->first_use > rhs.block->first_use;
-}
 bool is_fill_all(Place &place, Shape shape) {
     if (place.is_rotated) {
         Rotate(place.block);
@@ -33,32 +16,53 @@ bool is_fill_all(Place &place, Shape shape) {
     }
     return sud;
 }
+
 bool is_equal(Place &lhs, Place &rhs) {
-    return lhs.is_rotated == rhs.is_rotated && lhs.block->shape == rhs.block->shape;
+    if (lhs.is_rotated) {
+        Rotate(lhs.block);
+    }
+    if (rhs.is_rotated) {
+        Rotate(rhs.block);
+    }
+    bool sud = lhs.block->shape == rhs.block->shape;
+    if (lhs.is_rotated) {
+        Rotate(lhs.block);
+    }
+    if (rhs.is_rotated) {
+        Rotate(rhs.block);
+    }
+    return sud;
 }
-int getDfsNodeValue(EdgeLines &lines) {
+
+int getDfsNodeValue(EdgeLines &lines, const DfsPara &para) {
     if (lines.contain.size() == 1) {
-        return 5;
+        return para.dfs_when_line_1;
     }
     if (lines.contain.size() == 2) {
-        return 3;
+        return para.dfs_when_line_2;
     }
-    return 1;
+    return para.dfs_when_line_3;
 }
-double min_dis(Place& place,Shape& shape){
-    if(place.is_rotated){
+
+double matchValue(Place &place, Shape &shape) {
+    if (place.is_rotated) {
         Rotate(place.block);
     }
     double d1 = abs(place.block->shape.width - shape.width);
     double d2 = abs(place.block->shape.height - shape.height);
-    if(place.is_rotated){
+    if (place.is_rotated) {
         Rotate(place.block);
     }
-    return min(d1,d2) / (max(d1,d2)+eps);
+    return min(d1, d2) / (max(d1, d2) + eps);
 }
-void setPlaceValue(Place& place,Shape& shape){
-    place.value = min_dis(place,shape);
+
+bool cmpByValue(const Place &lhs, const Place &rhs) {
+    if (lhs.block->first_use == rhs.block->first_use) {
+        return lhs.value < rhs.value;
+    }
+    return lhs.block->first_use > rhs.block->first_use;
 }
+
 vector<Place> getBestPlace(const vector<Copoment *> &pool, Shape &shape, Pos &pos) {
     vector<Place> places;
     for (auto block: pool) {
@@ -74,9 +78,9 @@ vector<Place> getBestPlace(const vector<Copoment *> &pool, Shape &shape, Pos &po
         }
     }
     for (auto &place: places) {
-        setPlaceValue(place, shape);
+        place.value = matchValue(place, shape);
     }
-    sort(places.begin(), places.end(), cmp);
+    sort(places.begin(), places.end(), cmpByValue);
     vector<Place> new_places;
     for (auto place: places) {
         if (!new_places.empty() && is_equal(new_places[new_places.size() - 1], place)) {
@@ -86,84 +90,85 @@ vector<Place> getBestPlace(const vector<Copoment *> &pool, Shape &shape, Pos &po
     }
     return new_places;
 }
-bool isAllUsed(vector<Copoment*>& pool){
-    for(auto block:pool){
-        if(!block->used)return false;
-    }
-    return true;
+
+bool isAllUsed(const vector<Copoment *> &pool) {
+    auto isUsed = [](Copoment *block) {
+        return block->used;
+    };
+    return std::all_of(pool.begin(), pool.end(), isUsed);
 }
-int dfsMethod(vector<Copoment *> &pool, EdgeLines lines, Method &way, int deep = 0) {
+
+int dfsMethod(vector<Copoment *> &pool, EdgeLines lines, Method &way, const DfsPara &para, int deep = 0) {
+    dfs_num++;
+
     if (lines.getHighest() > Config::height)
         return 0;
-    /*
-    double tot_sqrt = 0;
-    for(auto place:way.arange){
-        tot_sqrt += place.block->getSqrt();
-    }
-    double board_sqrt = Config::height * Config::width;
-     */
     //TODO debug the waste area ( tot_sqrt + waste < board_sqrt)
     int update_num = 0;
-    update_num += way.update(way.cur_sqrt);
-    if(isAllUsed(pool)){
+    update_num += way.update(way.cur_sqrt, lines.getRestSpace());
+    if (deep == pool.size()) {
         way.is_best = true;
         return update_num;
     }
-    if (deep == 16){
+    if (deep == para.max_dfs_deep) {
         return update_num;
     }
     space low_part = lines.LowestSpace();
-    int max_dfs_node = getDfsNodeValue(lines);
-    if(deep >= 10){
+    int max_dfs_node = getDfsNodeValue(lines, para);
+    if (deep >= para.limit_dfs_deep) {
         max_dfs_node = 1;
     }
     vector<Place> places = getBestPlace(pool, low_part.shp, low_part.pos);
     if (places.empty()) {
-        assert(lines.InsertShape(low_part.pos, low_part.shp) );
+        assert(lines.InsertShape(low_part.pos, low_part.shp));
         way.cur_waste += low_part.shp.getSqrt();
-        dfsMethod(pool, lines, way, deep);
+        dfsMethod(pool, lines, way, para, deep);
         way.cur_waste -= low_part.shp.getSqrt();
     } else {
         int extern_search_node = 0;//(deep<5);
         for (auto &place: places) {
-            if(update_num >= 1){
+            if (update_num >= 1) {
                 extern_search_node = 1;
             }
-            if(update_num >= 5) {
+            if (update_num >= 5) {
                 extern_search_node = 2;
             }
-            if((max_dfs_node--)+extern_search_node <= 0)break;
+            if ((max_dfs_node--) + extern_search_node <= 0)break;
             if (place.is_rotated) {
                 Rotate(place.block);
             }
             EdgeLines new_line = lines;
-            assert( new_line.InsertShape(low_part.pos, place.block->shape));
+            assert(new_line.InsertShape(low_part.pos, place.block->shape));
             way.arange.push_back(place);
             place.block->used = true;
             way.cur_sqrt += place.block->getSqrt();
-            update_num+=dfsMethod(pool, new_line, way, deep + 1);
+            update_num += dfsMethod(pool, new_line, way, para, deep + 1);
             way.arange.pop_back();
             way.cur_sqrt -= place.block->getSqrt();
             place.block->used = false;
             if (place.is_rotated) {
                 Rotate(place.block);
             }
-            if(way.is_best)break;
+            if (way.is_best)break;
         }
     }
     return update_num;
 }
 
-Method getDfsMethod(vector<Copoment *> &pool) {
-    static unordered_map<ll,Method> hash_methods;
+Method getDfsMethod(vector<Copoment *> &pool, const DfsPara &para) {
+    static unordered_map<ll, Method> hash_methods;
     ll hash = getUnusedPoolHash(pool);
-    if(hash_methods.find(hash) != hash_methods.end()){
+    //cout << "for a dfs process " << endl;
+    if (hash_methods.find(hash) != hash_methods.end()) {
+        // cout << "cache here " << endl;
         return hash_methods[hash];
     }
+    dfs_num = 0;
     Board board;
     Method method;
-    dfsMethod(pool, board.lines, method);
+    dfsMethod(pool, board.lines, method, para);
     hash_methods[hash] = method;
+    //cout << "for dfs num is " << dfs_num << " siz " << pool.size() << " and best size " << method.best.size() << endl;
     return method;
 }
 
